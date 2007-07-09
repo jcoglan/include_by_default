@@ -7,7 +7,7 @@ module ActiveRecord #:nodoc:
       end
       
       def default_includes
-        read_inheritable("include_by_default")
+        read_inheritable_attribute("include_by_default")
       end
       
     private
