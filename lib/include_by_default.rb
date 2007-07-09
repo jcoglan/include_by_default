@@ -3,7 +3,7 @@ module ActiveRecord #:nodoc:
     class << self
     
       def include_by_default(associations)
-        write_inheritable_array("include_by_default", associations || {})
+        write_inheritable_attribute("include_by_default", associations || {})
       end
       
       def default_includes
