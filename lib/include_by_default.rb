@@ -2,8 +2,8 @@ module ActiveRecord #:nodoc:
   class Base
     class << self
     
-      def include_by_default(associations)
-        write_inheritable_attribute("include_by_default", associations || {})
+      def include_by_default(*args)
+        write_inheritable_attribute("include_by_default", args || [])
       end
       
       def default_includes
