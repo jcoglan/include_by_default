@@ -1,4 +1,36 @@
-IncludeByDefault
-================
+== IncludeByDefault
 
-Description goes here
+This plugin allows you to specify which associations should be eager-loaded automatically when you do a +find+ on one of your models. Read about eager loading in the Rails docs: http://api.rubyonrails.org/classes/ActiveRecord/Associations/ClassMethods.html
+
+This saves you having to write <tt>:include</tt> all over the place to minimise your database queries. Instead, you can put whatever you'd usually specify using <tt>:include</tt> in one declaration in your model. Say you have a photoblog that allows comments. Then your entry model might look like this:
+
+  class BlogEntry << ActiveRecord::Base
+    has_many :photos
+    has_many :comments
+    include_by_default :photos, :comments
+  end
+
+The associations will now be loaded automatically along with any <tt>BlogEntry</tt> record you +find+. If you specify <tt>:include</tt> explicitly in any +find+ operation, that will override the default specified in the model.
+
+
+=== License
+
+Copyright (c) 2007 James Coglan
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
