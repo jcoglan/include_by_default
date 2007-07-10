@@ -13,6 +13,26 @@ This saves you having to write <tt>:include</tt> all over the place to minimise 
 The associations will now be loaded automatically along with any <tt>BlogEntry</tt> record you +find+. If you specify <tt>:include</tt> explicitly in any +find+ operation, that will override the default specified in the model.
 
 
+== Bugs
+
+As well as the functionality stated above, IncludeByDefault attempts to fix a couple of bugs in ActiveRecord:
+
+* http://dev.rubyonrails.org/ticket/8838
+* http://dev.rubyonrails.org/ticket/8937
+
+The first is a problem with cascaded many-to-many queries. e.g.
+
+  Tag.find(8).entries.find(:all, :include => :tags)
+
+will usually raise an exception. IncludeByDefault fixes this by catching such exceptions when they occur and rewriting the <tt>:include</tt> using the <tt>:joins</tt> option with numeric table aliases. It will do this for +has_and_belongs_to_many+ and <tt>has_many :through</tt> associations when they cause problems. It is a collosal hack but works as far as I can tell. If you're using some funny naming scheme on your associations it might not work. That said, this hack will only get fired if an initial SQL call raises a +StatementInvalid+ exception, where Rails on its own leaves you high and dry anyway.
+
+The second is a problem that stops you using the <tt>:joins</tt> option on scoped many-to-many +find+ operations. That is, you cannot do
+
+  Tag.find(8).entries.find(:all, :joins => sql_fragment)
+
+if +Tag+ and +Entry+ are many-to-many. This plugin includes a rewrite of <tt>ActiveRecord::Base.add_joins!</tt> which allows you to do this as long as your <tt>:joins</tt> statement doesn't cause table naming conflicts with the scoped finder code. This was required in order to fix the first bug.
+
+
 === License
 
 Copyright (c) 2007 James Coglan

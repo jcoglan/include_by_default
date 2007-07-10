@@ -62,21 +62,38 @@ module ActiveRecord #:nodoc:
             next
           end
           association = reflect_on_association(inc)
-          unless association.macro.to_s == 'has_and_belongs_to_many'
-            includes << inc
-            next
-          end
           i += 1
-          assoc_class = Kernel.const_get(association.class_name)
-          opts = association.options
-          joins << <<-end_of_sql
-            LEFT OUTER JOIN `#{opts[:join_table]}` AS `ibd_join_table_#{i}`
-            ON `ibd_join_table_#{i}`.#{opts[:foreign_key]} =
-                #{table_name}.#{primary_key}
-            LEFT OUTER JOIN #{assoc_class.table_name} AS ibd_assoc_table_#{i}
-            ON ibd_assoc_table_#{i}.#{assoc_class.primary_key} =
-                ibd_join_table_#{i}.#{opts[:association_foreign_key]}
-          end_of_sql
+          
+          if association.macro.to_s == 'has_and_belongs_to_many'
+            assoc_class = Kernel.const_get(association.class_name)
+            opts = association.options
+            joins << <<-end_of_sql
+              LEFT OUTER JOIN `#{opts[:join_table]}` AS `ibd_join_table_#{i}`
+              ON `ibd_join_table_#{i}`.#{opts[:foreign_key]} =
+                  #{table_name}.#{primary_key}
+              LEFT OUTER JOIN #{assoc_class.table_name} AS ibd_assoc_table_#{i}
+              ON ibd_assoc_table_#{i}.#{assoc_class.primary_key} =
+                  ibd_join_table_#{i}.#{opts[:association_foreign_key]}
+            end_of_sql
+          
+          elsif association.macro.to_s == 'has_many' and association.options[:through]
+            through_assoc = reflect_on_association(association.options[:through])
+            through_class = Kernel.const_get(through_assoc.class_name)
+            source_assoc = through_class.reflect_on_association(association.name)
+            source_assoc ||= through_class.reflect_on_association(association.name.to_s.singularize.to_sym)
+            source_class = Kernel.const_get(source_assoc.class_name)
+            joins << <<-end_of_sql
+              LEFT OUTER JOIN `#{through_class.table_name}` AS `ibd_join_table_#{i}`
+              ON `ibd_join_table_#{i}`.#{through_assoc.options[:foreign_key]} =
+                  #{table_name}.#{primary_key}
+              LEFT OUTER JOIN #{source_class.table_name} AS ibd_assoc_table_#{i}
+              ON ibd_assoc_table_#{i}.#{source_class.primary_key} =
+                  ibd_join_table_#{i}.#{source_assoc.options[:foreign_key]}
+            end_of_sql
+          
+          else
+            includes << inc
+          end
         end
         options[:include] = includes.blank? ? nil : includes
         options[:joins] = joins * ' '
