@@ -70,8 +70,8 @@ module ActiveRecord #:nodoc:
           assoc_class = Kernel.const_get(association.class_name)
           opts = association.options
           joins << <<-end_of_sql
-            LEFT OUTER JOIN #{opts[:join_table]} AS ibd_join_table_#{i}
-            ON ibd_join_table_#{i}.#{opts[:foreign_key]} =
+            LEFT OUTER JOIN `#{opts[:join_table]}` AS `ibd_join_table_#{i}`
+            ON `ibd_join_table_#{i}`.#{opts[:foreign_key]} =
                 #{table_name}.#{primary_key}
             LEFT OUTER JOIN #{assoc_class.table_name} AS ibd_assoc_table_#{i}
             ON ibd_assoc_table_#{i}.#{assoc_class.primary_key} =
@@ -87,8 +87,22 @@ module ActiveRecord #:nodoc:
       # for +convert_problematic_includes_to_joins+ to work.
       def add_joins!(sql, options, scope = :auto)
         scope = scope(:find) if :auto == scope
-        join = [(scope && scope[:joins]), options[:joins]].uniq * " "
+        join = scope && scope[:joins]
+        scope_tables = table_aliases_from_join_statement(join)
+        if options[:joins]
+          option_tables = table_aliases_from_join_statement(options[:joins])
+          join = "#{join.to_s} #{options[:joins]}" unless option_tables.map { |t| scope_tables.include?(t) }.include?(true)
+        end
         sql << " #{join} " if join
+      end
+      
+      # Returns the table names/aliases used in a JOIN SQL fragment. For each table used,
+      # this method returns its alias if it is given one using AS, and its real name otherwise.
+      def table_aliases_from_join_statement(str)
+        return [] if str.blank?
+        return str.scan(/JOIN\s+(`[^`]`|\S+)(?:\s+AS\s+(`[^`]`|\S+))?/i).collect do |name|
+          (name[1] || name[0]).gsub(/^`(.*)`$/, '\1')
+        end
       end
     
     end
