@@ -16,17 +16,7 @@ module ActiveRecord #:nodoc:
       
     private
       
-      # Wrapper for +find_initial+
-      def find_initial_with_default_includes(options)
-        add_default_includes(options)
-        find_initial_without_default_includes(options)
-      rescue ActiveRecord::StatementInvalid
-        convert_problematic_includes_to_joins(options)
-        find_initial_without_default_includes(options)
-      end
-      alias_method_chain(:find_initial, :default_includes)
-      
-      # Wrapper for +find_every+
+      # Wrapper for +find_every+ - all other finders are routed through this method.
       def find_every_with_default_includes(options)
         add_default_includes(options)
         find_every_without_default_includes(options)
@@ -35,16 +25,6 @@ module ActiveRecord #:nodoc:
         find_every_without_default_includes(options)
       end
       alias_method_chain(:find_every, :default_includes)
-      
-      # Wrapper for +find_from_ids+
-      def find_from_ids_with_default_includes(ids, options)
-        add_default_includes(options)
-        find_from_ids_without_default_includes(ids, options)
-      rescue ActiveRecord::StatementInvalid
-        convert_problematic_includes_to_joins(options)
-        find_from_ids_without_default_includes(ids, options)
-      end
-      alias_method_chain(:find_from_ids, :default_includes)
       
       # Adds the default includes onto the <tt>:options</tt> hash if no includes are specified
       def add_default_includes(options)
@@ -63,40 +43,53 @@ module ActiveRecord #:nodoc:
           end
           association = reflect_on_association(inc)
           i += 1
-          
-          if association.macro.to_s == 'has_and_belongs_to_many'
-            assoc_class = Kernel.const_get(association.class_name)
-            opts = association.options
-            joins << <<-end_of_sql
-              LEFT OUTER JOIN #{opts[:join_table]} AS ibd_join_table_#{i}
-              ON ibd_join_table_#{i}.#{opts[:foreign_key]} =
-                  #{table_name}.#{primary_key}
-              LEFT OUTER JOIN #{assoc_class.table_name} AS ibd_assoc_table_#{i}
-              ON ibd_assoc_table_#{i}.#{assoc_class.primary_key} =
-                  ibd_join_table_#{i}.#{opts[:association_foreign_key]}
-            end_of_sql
-          
-          elsif association.macro.to_s == 'has_many' and association.options[:through]
-            through_assoc = reflect_on_association(association.options[:through])
-            through_class = Kernel.const_get(through_assoc.class_name)
-            source_assoc = through_class.reflect_on_association(association.name)
-            source_assoc ||= through_class.reflect_on_association(association.name.to_s.singularize.to_sym)
-            source_class = Kernel.const_get(source_assoc.class_name)
-            joins << <<-end_of_sql
-              LEFT OUTER JOIN #{through_class.table_name} AS ibd_join_table_#{i}
-              ON ibd_join_table_#{i}.#{through_assoc.options[:foreign_key]} =
-                  #{table_name}.#{primary_key}
-              LEFT OUTER JOIN #{source_class.table_name} AS ibd_assoc_table_#{i}
-              ON ibd_assoc_table_#{i}.#{source_class.primary_key} =
-                  ibd_join_table_#{i}.#{source_assoc.options[:foreign_key]}
-            end_of_sql
-          
+          if association.macro == :has_and_belongs_to_many
+            joins << join_fragment_for_has_and_belongs_to_many_association(association, i)
+          elsif association.macro == :has_many and association.options[:through]
+            joins << join_fragment_for_has_many_through_association(association, i)
           else
             includes << inc
           end
         end
         options[:include] = includes.blank? ? nil : includes
         options[:joins] = joins * ' '
+      end
+      
+      # Returns a JOIN statement for a HABTM association, with the given numeric index used for table aliasing
+      def join_fragment_for_has_and_belongs_to_many_association(association, i = 1)
+        association = reflect_on_association(association) unless association.is_a?(ActiveRecord::Reflection::AssociationReflection)
+        return nil unless association and association.macro == :has_and_belongs_to_many
+        assoc_class = Kernel.const_get(association.class_name)
+        opts = association.options
+        sql = <<-end_of_sql
+          LEFT OUTER JOIN #{opts[:join_table]} AS ibd_join_table_#{i}
+          ON ibd_join_table_#{i}.#{opts[:foreign_key]} =
+              #{table_name}.#{primary_key}
+          LEFT OUTER JOIN #{assoc_class.table_name} AS ibd_assoc_table_#{i}
+          ON ibd_assoc_table_#{i}.#{assoc_class.primary_key} =
+              ibd_join_table_#{i}.#{opts[:association_foreign_key]}
+        end_of_sql
+        sql.gsub(/\n/, '').gsub(/\s+/, ' ')
+      end
+      
+      # Returns a JOIN statement for a <tt>has_many :through</tt> association, with the given numeric index used for table aliasing
+      def join_fragment_for_has_many_through_association(association, i = 1)
+        association = reflect_on_association(association) unless association.is_a?(ActiveRecord::Reflection::AssociationReflection)
+        return nil unless association and association.macro == :has_many and association.options[:through]
+        through_assoc = reflect_on_association(association.options[:through])
+        through_class = Kernel.const_get(through_assoc.class_name)
+        source_assoc = through_class.reflect_on_association(association.name)
+        source_assoc ||= through_class.reflect_on_association(association.name.to_s.singularize.to_sym)
+        source_class = Kernel.const_get(source_assoc.class_name)
+        sql = <<-end_of_sql
+          LEFT OUTER JOIN #{through_class.table_name} AS ibd_join_table_#{i}
+          ON ibd_join_table_#{i}.#{through_assoc.options[:foreign_key]} =
+              #{table_name}.#{primary_key}
+          LEFT OUTER JOIN #{source_class.table_name} AS ibd_assoc_table_#{i}
+          ON ibd_assoc_table_#{i}.#{source_class.primary_key} =
+              ibd_join_table_#{i}.#{source_assoc.options[:foreign_key]}
+        end_of_sql
+        sql.gsub(/\n/, '').gsub(/\s+/, ' ')
       end
       
       # Rewrite of the standard <tt>add_joins!</tt> method that adds support for
