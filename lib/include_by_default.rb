@@ -32,6 +32,18 @@ module ActiveRecord #:nodoc:
         options[:include] = default_includes
       end
       
+      # Wrapper for <tt>using_limitable_reflections?</tt>, so that it remembers the state of play before troublesome
+      # includes are converted to join fragments. To get back correct result set sizes when using <tt>include</tt> with
+      # <tt>:limit</tt>, you'll need to make sure you include at least one +has_many+ or +has_and_belongs_to_many+ association.
+      # You'll only run into this bug when using +find+ scoped by a HABTM association with duplicate links in the DB.
+      # See this Rails ticket: http://dev.rubyonrails.org/ticket/8947
+      def using_limitable_reflections_with_duplicate_alias_exception_catching?(reflections)
+        return @cached_using_limitable_reflections unless @cached_using_limitable_reflections.nil?
+        @cached_using_limitable_reflections ||= using_limitable_reflections_without_duplicate_alias_exception_catching?(reflections)
+      end
+      alias_method(:using_limitable_reflections_without_duplicate_alias_exception_catching?, :using_limitable_reflections?)
+      alias_method(:using_limitable_reflections?, :using_limitable_reflections_with_duplicate_alias_exception_catching?)
+      
       # Deals with exceptions thrown by duplicate table names. Any includes that are
       # HABTM are stripped out and rewritten as joins with numeric table aliases
       def convert_problematic_includes_to_joins(options)
