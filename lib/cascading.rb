@@ -75,7 +75,7 @@ module ActiveRecord #:nodoc:
       # will therefore not be eager loaded unless we manually force the association back in.
       def find_with_associations(options = {})
         catch :invalid_query do
-          join_dependency = ActiveRecord::Associations::ClassMethods::JoinDependency.new(self, merge_includes(scope(:find, :include), options[:include]), options[:joins])
+          join_dependency = JoinDependency.new(self, merge_includes(scope(:find, :include), options[:include]), options[:joins])
           rows = select_all_rows(options, join_dependency)
           return join_dependency.instantiate(rows, @join_table_aliases_for_eager_loading)
         end
