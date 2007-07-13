@@ -24,13 +24,13 @@ The first is a problem with cascaded many-to-many queries. e.g.
 
   Tag.find(8).entries.find(:all, :include => :tags)
 
-will usually raise an exception. IncludeByDefault fixes this by catching such exceptions when they occur and rewriting the <tt>:include</tt> using the <tt>:joins</tt> option with numeric table aliases. It will do this for +has_and_belongs_to_many+ and <tt>has_many :through</tt> associations when they cause problems. It is a collosal hack but works as far as I can tell. If you're using some funny naming scheme on your associations it might not work. That said, this hack will only get fired if an initial SQL call raises a +StatementInvalid+ exception, where Rails on its own leaves you high and dry anyway.
+will usually raise an exception. IncludeByDefault fixes this by overloading <tt>ActiveRecord::Base.add_joins!</tt> so that it re-aliases any duplicate table names to disambiguate the SQL generated.
 
 The second is a problem that stops you using the <tt>:joins</tt> option on scoped many-to-many +find+ operations. That is, you cannot do
 
   Tag.find(8).entries.find(:all, :joins => sql_fragment)
 
-if +Tag+ and +Entry+ are many-to-many. This plugin includes a rewrite of <tt>ActiveRecord::Base.add_joins!</tt> which allows you to do this as long as your <tt>:joins</tt> statement doesn't cause table naming conflicts with the scoped finder code. This was required in order to fix the first bug.
+if +Tag+ and +Entry+ are many-to-many. My rewrite of <tt>ActiveRecord::Base.add_joins!</tt> allows you do this. The rewrite does the table aliasing on the existing SQL before appending the new JOIN fragment, so the table names you use for <tt>:joins</tt> should be retained.
 
 
 === License
