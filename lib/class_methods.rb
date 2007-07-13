@@ -29,7 +29,7 @@ module ActiveRecord #:nodoc:
         options[:include] = default_includes
       end
       
-      # Overwrite than renames join tables if clashes are found
+      # Overwrite that renames join tables if clashes are found
       def add_joins!(sql, options, scope = :auto)
         scope = scope(:find) if :auto == scope
         join = (scope && scope[:joins]) || options[:joins]
@@ -42,7 +42,7 @@ module ActiveRecord #:nodoc:
       def table_aliases_from_join_fragment(sql)
         return [] if sql.blank?
         return sql.scan(/JOIN\s+(`[^`]`|\S+)(?:\s+(?:AS\s+)?(`[^`]`|\S+))?/i).collect do |name|
-          ((name[1] =~ /ON/i) ? name[0] : (name[1] || name[0])).gsub(/^`(.*)`$/, '\1')
+          ((name[1] =~ /^ON$/i) ? name[0] : (name[1] || name[0])).gsub(/^`(.*)`$/, '\1')
         end
       end
       
