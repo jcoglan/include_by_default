@@ -52,16 +52,14 @@ module ActiveRecord #:nodoc:
       # you specify, reducing the potential for confusion.
       def extend_sql_avoiding_table_naming_clashes!(sql, addition)
         used_table_aliases = table_aliases_from_join_fragment(addition)
-        table_aliases_from_join_fragment(sql).each do |join_table_alias|
-          if used_table_aliases.include?(join_table_alias)
-            i = 0
-            begin
-              i += 1
-              new_alias = "renamed_join_table_#{i}"
-            end until !used_table_aliases.include?(new_alias)
-            convert_table_name_to_new_alias!(sql, join_table_alias, new_alias)
-          end
-          used_table_aliases << (new_alias || join_table_alias)
+        old_table_aliases = table_aliases_from_join_fragment(sql)
+        (used_table_aliases & old_table_aliases).each do |join_table_alias|
+          i = 0
+          begin
+            i += 1
+            new_alias = "renamed_join_table_#{i}"
+          end until !used_table_aliases.include?(new_alias)
+          convert_table_name_to_new_alias!(sql, join_table_alias, new_alias)
         end
         sql << " #{addition} "
       end
