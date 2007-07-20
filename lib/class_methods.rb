@@ -14,6 +14,12 @@ module ActiveRecord #:nodoc:
         read_inheritable_attribute("include_by_default").to_a
       end
       
+      def calculate_with_default_includes(operation, column_name, options = {})
+        add_default_includes!(options)
+        calculate_without_default_includes(operation, column_name, options)
+      end
+      alias_method_chain(:calculate, :default_includes)
+      
     private
       
       # Wrapper for +find_every+ - all other finders are routed through this method.
