@@ -47,8 +47,8 @@ module ActiveRecord #:nodoc:
       # Returns the names (or aliases if used) of each table used in a JOIN fragment
       def table_aliases_from_join_fragment(sql)
         return [] if sql.blank?
-        return sql.scan(/JOIN\s+(`[^`]`|\S+)(?:\s+(?:AS\s+)?(`[^`]`|\S+))?/i).collect do |name|
-          ((name[1] =~ /^ON$/i) ? name[0] : (name[1] || name[0])).gsub(/^`(.*)`$/, '\1')
+        return sql.scan(/JOIN\s+(`[^`]+`|"[^"]+"|\[[^\]]+\]|\S+)(?:\s+(?:AS\s+)?(`[^`]+`|"[^"]+"|\[[^\]]+\]|\S+))?/i).collect do |name|
+          ((name[1] =~ /^ON$/i) ? name[0] : (name[1] || name[0])).gsub(/^[`"\[]?(.*)[`"\]]?$/, '\1')
         end
       end
       
@@ -73,15 +73,15 @@ module ActiveRecord #:nodoc:
       # Modifies the SQL fragment such that every instance of +old_table_name+
       # is replaced by or aliased using (in JOIN ... AS blocks) +new_alias+.
       def convert_table_name_to_new_alias!(sql, old_table_name, new_alias)
-        regex = Regexp.new("(?:(?:JOIN|AS)?\\s+|\\()`?#{old_table_name}`?(?:\\s+(?:AS\\s+)?(?:`[^`]`|\\S+)|\\.|\\s)", Regexp::IGNORECASE)
+        regex = Regexp.new("(?:(?:JOIN|AS)?\\s+|\\()[`\"\\[]?#{old_table_name}[`\"\\]]?(?:\\s+(?:AS\\s+)?(?:`[^`]+`|\"[^\"]+\"|\\[[^\\]]+\\]|\\S+)|\\.|\\s)", Regexp::IGNORECASE)
         sql.gsub!(regex) do |match|
           prefix = (match =~ /^\(/) ? '(' : ''
           suffix = match.gsub(/^.*?(\s+ON|.)$/i, '\1')
-          if test = match.match(/^JOIN\s+(?:`[^`]`|\S+)(\s+(?:AS\s+)?(?:`[^`]`|\S+))/i) and !(test.captures.first =~ /^ ON$/i)
+          if test = match.match(/^JOIN\s+(?:`[^`]+`|"[^"]+"|\[[^\]]+\]|\S+)(\s+(?:AS\s+)?(?:`[^`]+`|"[^"]+"|\[[^\]]+\]|\S+))/i) and !(test.captures.first =~ /^ ON$/i)
             # If the table name is already aliased within this match, don't replace it
             result = match
           else
-            replacement = "JOIN `#{old_table_name}` AS #{new_alias}" if match =~ /^JOIN\s/i
+            replacement = "JOIN #{old_table_name} AS #{new_alias}" if match =~ /^JOIN\s/i
             replacement = "AS #{new_alias}" if match =~ /^AS\s/i
             replacement = " #{new_alias}" unless match =~ /^(JOIN|AS)\s/i
             result = "#{prefix}#{replacement}#{suffix}"
